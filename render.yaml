@@ -1,0 +1,20 @@
+# Optional Render Blueprint — 100% free plan. Data persists in an encrypted private GitHub Gist (see README).
+services:
+  - type: web
+    name: im-at-1-percent-v5
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: GIST_ID
+        sync: false
+      - key: GITHUB_TOKEN
+        sync: false
+      - key: ADMIN_EMAIL
+        sync: false
