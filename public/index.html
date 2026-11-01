@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
+<meta name="theme-color" content="#d92f8b">
+<meta name="description" content="Live battery assistance: find nearby helpers when your phone is at 1%.">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<title>I'm at 1 Percent V5 — Live Battery Assistance</title>
+<style>
+:root{--pink:#d92f8b;--deep:#50142f;--soft:#fff0f6;--line:#df76a6}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,system-ui,Arial,sans-serif;background:#ffd6e8;color:#50142f}
+button,input,select{font:inherit}
+button{cursor:pointer;border:1px solid #c94f88;border-radius:10px;padding:10px 14px;background:#ffd0e2;color:#50142f}
+button.primary{background:var(--pink);color:#fff;border-color:var(--pink)}
+.app{min-height:100vh;background:radial-gradient(circle at 80% 0%,#ff79ae 0,#ffafd0 42%,#ffd9e9 100%)}
+header{padding:16px 20px;background:#ffb6d5ee;border-bottom:1px solid #df6d9f;position:sticky;top:0;z-index:1000;backdrop-filter:blur(10px)}
+.brand{font-size:20px;font-weight:800}.brand span{color:#c51e72}
+.sub{font-size:12px;color:#7a3153;margin-top:3px}
+nav{display:flex;gap:7px;overflow:auto;padding:10px 14px;background:#ffafd0;border-bottom:1px solid #df6d9f;position:sticky;top:72px;z-index:900;scrollbar-width:none}
+nav::-webkit-scrollbar{display:none}
+nav button{white-space:nowrap}
+nav button.active{background:var(--pink);color:#fff}
+main{max-width:1200px;margin:auto;padding:18px}
+.card{background:#fff0f6e9;border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:0 8px 25px #0002;margin-bottom:14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+.hidden{display:none!important}
+.muted{color:#7e4861}.tiny{font-size:12px}.metric{font-size:28px;font-weight:800;color:#d9367f}
+label{display:block;font-size:13px;margin:10px 0 5px}
+input,select{width:100%;background:#ffe5ef;border:1px solid #d85b91;border-radius:10px;padding:11px;color:#50142f}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.status{display:inline-block;padding:4px 8px;border-radius:999px;font-size:11px;border:1px solid #b94f7d}
+.online-dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:#22a65a;margin-right:6px}
+.user-row{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid #e7a6bf}
+#liveMap{height:520px;border-radius:14px;overflow:hidden;border:1px solid #cf6b99}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;margin-top:8px}
+.notice{padding:10px;border-radius:10px;background:#ffe1ec;border:1px solid var(--line);margin:10px 0}
+.toast{position:fixed;right:16px;bottom:16px;background:var(--deep);color:#fff;padding:11px 14px;border-radius:10px;display:none;z-index:3000}
+.auth{max-width:480px;margin:50px auto}.row{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}
+.leaflet-routing-container{max-height:220px;overflow:auto}
+.badge{display:inline-flex;align-items:center;gap:5px;padding:5px 9px;border-radius:999px;background:#ffe1ec;font-size:12px}
+.chat-layout{display:grid;grid-template-columns:270px 1fr;gap:12px;min-height:480px}
+.chat-list{background:#ffe5ef;border:1px solid var(--line);border-radius:14px;overflow:auto;max-height:520px}
+.chat-person{padding:12px;border-bottom:1px solid #e7a6bf;cursor:pointer}
+.chat-person:hover,.chat-person.active{background:#ffd0e2}
+.chat-window{display:flex;flex-direction:column;background:#fff8fb;border:1px solid var(--line);border-radius:14px;min-width:0}
+.chat-head{padding:12px 14px;border-bottom:1px solid #e7a6bf}
+.messages{flex:1;min-height:260px;max-height:360px;overflow:auto;padding:14px;display:flex;flex-direction:column;gap:8px}
+.bubble{max-width:78%;padding:9px 12px;border-radius:14px;background:#ffe1ec;align-self:flex-start;word-break:break-word}
+.bubble.mine{background:var(--pink);color:#fff;align-self:flex-end}
+.bubble small{display:block;opacity:.7;font-size:10px;margin-top:3px}
+.chat-compose{display:flex;gap:8px;padding:10px;border-top:1px solid #e7a6bf}
+.chat-compose input{flex:1}
+.empty{padding:28px;text-align:center;color:#7e4861}
+.help-card{border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:10px;background:#fff8fb}
+@media(max-width:720px){.chat-layout{grid-template-columns:1fr}.chat-list{max-height:170px}.messages{max-height:none}}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #50142f;outline-offset:2px}
+button:disabled{opacity:.55;cursor:not-allowed}
+.unread{background:var(--pink);color:#fff;border-radius:999px;padding:1px 7px;font-size:11px;margin-left:6px}
+.status.Pending{background:#fff3c4}.status.Accepted{background:#cdf5dc}.status.Resolved{background:#dde7ff}.status.Cancelled,.status.Expired{background:#eee}
+.typing{font-size:11px;padding:0 14px 6px;min-height:18px;color:#7e4861}
+.offline-banner{background:#50142f;color:#fff;text-align:center;padding:6px;font-size:13px}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+.modal{position:fixed;inset:0;background:#0007;display:flex;align-items:center;justify-content:center;z-index:4000;padding:16px}
+.modal-box{background:#fff0f6;border-radius:16px;padding:20px;max-width:440px;width:100%;max-height:90vh;overflow:auto;border:1px solid var(--line)}
+.leaflet-container.pinning{cursor:crosshair}
+a{color:#c51e72}
+</style>
+</head>
+<body>
+<div class="app">
+<div id="offlineBanner" class="offline-banner hidden">You're offline — reconnecting…</div>
+<header>
+  <div class="brand">I'M AT <span>1 PERCENT V5</span></div>
+  <div class="sub">Live Battery Assistance · works anywhere · nearby people, live</div>
+</header>
+
+<div id="authScreen" class="auth card">
+  <h1>Welcome</h1>
+  <p class="muted">Log in to see participating students and available helpers in real time.</p>
+  <div id="loginBox"><label>Name</label><input id="regName" placeholder="Shown to other users" style="display:none">
+  <label>Email</label><input id="email" type="email" autocomplete="email" placeholder="you@example.com">
+  <label>Password</label><input id="password" type="password" autocomplete="current-password" placeholder="At least 8 characters">
+  <div class="actions">
+    <button class="primary" onclick="login()">Log In</button>
+    <button onclick="toggleRegister()">Create Account</button>
+  </div>
+  </div>
+  <div id="authMsg" class="tiny muted" style="margin-top:10px"></div>
+  <div class="notice tiny"><b>Live server:</b> accounts and data are stored on this app's own server — every device sees the same data in real time.</div>
+</div>
+
+<div id="appScreen" class="hidden">
+<nav>
+  <button data-page="dashboard" class="active" onclick="go('dashboard')">Dashboard</button>
+  <button data-page="mapPage" onclick="go('mapPage')">Live Map</button>
+  <button data-page="request" onclick="go('request')">I'm at 1%</button>
+  <button data-page="helpers" onclick="go('helpers')">Available Helpers</button>
+  <button data-page="helpNearby" onclick="go('helpNearby')">🙋 Who To Help</button>
+  <button data-page="requests" onclick="go('requests')">Requests</button>
+  <button data-page="chat" onclick="go('chat')">💬 Messages <span id="messageBadge"></span></button>
+  <button data-page="profile" onclick="go('profile')">Profile</button>
+  <button onclick="logout()">Log Out</button>
+</nav>
+
+<main>
+<section id="dashboard" class="page">
+  <div class="card">
+    <div class="row">
+      <div><h1>Battery Assistance Command Center</h1><p class="muted">See who is near you, live — anywhere in the world.</p></div>
+      <span id="connectionStatus" class="status">Connecting…</span>
+    </div>
+    <div class="grid" style="margin-top:14px">
+      <div class="card"><div class="tiny muted">YOUR LOCATION</div><div id="locStatus" class="metric" style="font-size:16px">Sharing is off</div><div class="tiny">Show people within <select id="radiusSel" onchange="setRadius(this.value)" style="width:auto;padding:4px"><option value="0.1">100 m</option><option value="0.5">500 m</option><option value="1">1 km</option></select></div></div>
+      <div class="card"><div class="tiny muted">ONLINE USERS</div><div id="onlineCount" class="metric">0</div></div>
+      <div class="card"><div class="tiny muted">AVAILABLE HELPERS</div><div id="helperCount" class="metric">0</div></div>
+    </div>
+  </div>
+  <div class="grid">
+    <div class="card">
+      <h3>Your Live Status</h3>
+      <p id="myStatus" class="muted">Loading profile…</p>
+      <div class="actions">
+        <button class="primary" onclick="enableLocation()">Share Live Location</button>
+        <button onclick="startPin()">📌 Pin on map</button>
+        <button onclick="disableLocation()">Stop Location</button>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Navigation</h3>
+      <p class="muted">Use the map to choose a helper or student and request a route from your current position.</p>
+      <button class="primary" onclick="go('mapPage')">Open Live Map</button>
+    </div>
+  </div>
+</section>
+
+<section id="mapPage" class="page hidden">
+  <div class="card">
+    <div class="row">
+      <div><h1>Live Map</h1><p class="muted">Centered on you. The circle is your chosen search radius.</p></div>
+      <div class="actions" style="margin:0"><button onclick="locateMe()">Locate Me</button><button onclick="startPin()">📌 Pin my location</button></div>
+    </div>
+    <div id="liveMap"><div class="empty">Loading map…</div></div>
+    <div class="legend"><span>🟢 Online student</span><span>🔋 Available helper</span><span>📍 You</span><span>⭕ Search radius</span></div>
+    <div id="routeBox" class="notice hidden"></div>
+  </div>
+</section>
+
+<section id="request" class="page hidden">
+  <div class="card">
+    <h1>I'm at 1%</h1>
+    <p class="muted">Send a request to nearby helpers.</p>
+    <label>Battery percentage</label><input id="battery" type="number" min="1" max="100" value="1">
+    <label>Resource needed</label>
+    <select id="resource"><option>Power Bank</option><option>Charger</option><option>Laptop Charger</option><option>USB-C Cable</option><option>Lightning Cable</option><option>Micro-USB Cable</option><option>Wall Charger</option><option>Charging Adapter</option><option>Universal Travel Adapter</option><option>Charging Outlet</option></select>
+    <label>Message</label><input id="requestNote" placeholder="Example: I need a compatible charger.">
+    <div class="actions"><button class="primary" onclick="createRequest()">Send Request</button></div>
+  </div>
+</section>
+
+<section id="helpers" class="page hidden">
+  <div class="card">
+    <h1>Available Helpers — Live</h1>
+    <p class="muted">Helpers with location sharing enabled appear on the map. Tap a helper to message or request navigation.</p>
+    <div id="helperList"></div>
+  </div>
+</section>
+
+<section id="helpNearby" class="page hidden">
+  <div class="card">
+    <div class="row"><div><h1>🙋 Who You Can Help</h1><p class="muted">Every online student in the service area, closest first. Reach out even before they file a request.</p></div><button onclick="renderHelpNearby()">Refresh</button></div>
+    <div id="helpNearbyList"></div>
+  </div>
+</section>
+
+<section id="requests" class="page hidden">
+  <div class="card">
+    <div class="row"><div><h1>Assistance Requests</h1><p class="muted">Students see their own requests; helpers see every open request.</p></div><button onclick="refreshRequests()">Refresh</button></div>
+    <div id="requestList"></div>
+  </div>
+</section>
+
+<section id="chat" class="page hidden">
+  <div class="card">
+    <div class="row"><div><h1>💬 Messages</h1><p class="muted">Direct, private conversation between a student and a helper.</p></div><span class="badge">Live · WebSocket</span></div>
+    <div class="chat-layout" style="margin-top:14px">
+      <div class="chat-list" id="chatPeople"></div>
+      <div class="chat-window">
+        <div class="chat-head" id="chatHead"><b>Select a person</b><div class="tiny muted">Choose someone from the list, the map, or Who To Help.</div></div>
+        <div class="messages" id="messages"><div class="empty">💬 Your conversation will appear here.</div></div>
+        <div class="typing" id="typing" aria-live="polite"></div>
+        <div class="chat-compose"><input id="chatInput" placeholder="Type a message…" maxlength="1000" oninput="sendTyping()" onkeydown="if(event.key==='Enter')sendMessage()"><button class="primary" onclick="sendMessage()">Send</button></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="profile" class="page hidden">
+  <div class="card">
+    <h1>Profile</h1>
+    <label>Name</label><input id="profileName" placeholder="Your name">
+    <label>Role</label>
+    <select id="profileRole"><option>Student</option><option>Helper</option><option>Both</option></select>
+    <label>Available as helper</label>
+    <select id="helperAvailable"><option value="false">No</option><option value="true">Yes</option></select>
+    <div class="actions"><button class="primary" onclick="saveProfile()">Save Profile</button></div>
+    <hr><h3>Blocked people</h3><div id="blockedList" class="tiny muted">None</div>
+    <div id="adminBox" class="hidden"><hr><h3>Moderation (admin)</h3><div id="adminList" class="tiny muted">No reports</div></div>
+    <hr><h3>Security</h3>
+    <label>Current password</label><input id="curPw" type="password" autocomplete="current-password">
+    <label>New password (8+ characters)</label><input id="newPw" type="password" autocomplete="new-password">
+    <div class="actions"><button onclick="changePassword()">Change Password</button><button onclick="deleteAccount()">Delete Account</button></div>
+    <p class="tiny muted">Your live presence is updated while you are signed in. Location is only shared after you grant browser location permission.</p>
+  </div>
+</section>
+</main>
+</div>
+</div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script>
+const TOKEN_KEY="imat1_token";
+let token=localStorage.getItem(TOKEN_KEY)||null;
+let me={},myId=null,users=new Map(),requests=[],chatWith=null,seenPairs=new Set();
+let mapObj=null,centerCircle=null,userLayer=null,helperLayer=null,routeControl=null;
+let watchId=null,currentPosition=null,ws=null,wsRetry=0;
+
+const $=id=>document.getElementById(id);
+let toastT;function toast(t){const x=$("toast");x.textContent=t;x.style.display="block";clearTimeout(toastT);toastT=setTimeout(()=>x.style.display="none",2800)}
+const safe=fn=>async(...a)=>{try{return await fn(...a)}catch(e){toast(e.message)}};
+let hbTimer=null,typingSentAt=0,typingT=null,convos=new Map();
+function ago(t){const s=(Date.now()-t)/1000;return s<60?"just now":s<3600?Math.floor(s/60)+"m ago":s<86400?Math.floor(s/3600)+"h ago":new Date(t).toLocaleDateString()}
+function forceLogout(){localStorage.removeItem(TOKEN_KEY);token=null;clearInterval(hbTimer);if(ws)ws.close();stopWatch();currentPosition=null;$("appScreen").classList.add("hidden");$("authScreen").classList.remove("hidden")}
+function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
+function distance(a,b,c,d){const R=6371000,rad=x=>x*Math.PI/180,da=rad(c-a),db=rad(d-b),q=Math.sin(da/2)**2+Math.cos(rad(a))*Math.cos(rad(c))*Math.sin(db/2)**2;return 2*R*Math.asin(Math.sqrt(q))}
+
+async function api(path,opts={}){
+  const headers={"Content-Type":"application/json",...(opts.headers||{})};
+  if(token)headers.Authorization="Bearer "+token;
+  let res;try{res=await fetch(path,{...opts,headers})}catch(e){throw new Error("Can't reach the server. Check your connection.")}
+  const data=await res.json().catch(()=>({}));
+  if(res.status===401&&token&&!path.startsWith("/api/auth/")){forceLogout();throw new Error(data.error||"Signed out")}
+  if(!res.ok){throw new Error(data.error||"Request failed")}
+  return data;
+}
+
+window.toggleRegister=()=>{
+  const show=$("regName").style.display==="none";
+  $("regName").style.display=show?"block":"none";
+  $("authMsg").textContent=show?"Fill in your name, email and a password, then click Create Account again.":"";
+};
+window.login=async()=>{
+  try{
+    const email=$("email").value.trim(),password=$("password").value;
+    const data=await api("/api/auth/login",{method:"POST",body:JSON.stringify({email,password})});
+    token=data.token;localStorage.setItem(TOKEN_KEY,token);await startSession();
+  }catch(e){$("authMsg").textContent=e.message}
+};
+// Create Account button: if the name field is visible AND filled, register; otherwise reveal the field first.
+document.addEventListener("DOMContentLoaded",()=>{
+  ["email","password","regName"].forEach(i=>$(i).addEventListener("keydown",e=>{if(e.key==="Enter")($("regName").style.display==="none"?login:()=>createBtn.onclick())()}));
+  const createBtn=[...document.querySelectorAll(".auth button")].find(b=>b.textContent==="Create Account");
+  createBtn.onclick=async()=>{
+    if($("regName").style.display==="none"){toggleRegister();return}
+    try{
+      const name=$("regName").value.trim(),email=$("email").value.trim(),password=$("password").value;
+      const data=await api("/api/auth/register",{method:"POST",body:JSON.stringify({name,email,password})});
+      token=data.token;localStorage.setItem(TOKEN_KEY,token);await startSession();
+    }catch(e){$("authMsg").textContent=e.message}
+  };
+});
+window.logout=async()=>{
+  if(token)try{await fetch("/api/offline",{method:"POST",headers:{"Content-Type":"text/plain"},body:token})}catch(e){}
+  forceLogout();
+};
+
+async function startSession(){
+  $("authScreen").classList.add("hidden");$("appScreen").classList.remove("hidden");
+  try{me=await api("/api/me")}catch(e){forceLogout();return}myId=me.id;
+  $("profileName").value=me.name||"";$("profileRole").value=me.role||"Student";$("helperAvailable").value=String(!!me.helperAvailable);
+  $("myStatus").textContent=`Signed in as ${me.name||me.email}. Role: ${me.role}.`;
+  $("connectionStatus").textContent="Connected";
+  connectWS();
+  await refreshUsers();await refreshRequests();
+  initMap();resumeLocation();updateStatus();
+  clearInterval(hbTimer);hbTimer=setInterval(()=>{api("/api/heartbeat",{method:"POST"}).catch(()=>{})},25000);
+  refreshConvos();
+  if("Notification"in window&&Notification.permission==="default")Notification.requestPermission();
+}
+window.saveProfile=safe(async()=>{
+  me=await api("/api/me",{method:"PUT",body:JSON.stringify({name:$("profileName").value.trim()||"User",role:$("profileRole").value,helperAvailable:$("helperAvailable").value==="true"})});
+  toast("Profile saved");$("myStatus").textContent=`Signed in as ${me.name}. Role: ${me.role}.`;refreshRequests();
+});
+window.changePassword=safe(async()=>{
+  const r=await api("/api/me/password",{method:"POST",body:JSON.stringify({password:$("curPw").value,newPassword:$("newPw").value})});
+  token=r.token;localStorage.setItem(TOKEN_KEY,token);$("curPw").value=$("newPw").value="";toast("Password changed");
+});
+window.deleteAccount=safe(async()=>{
+  const pw=prompt("Type your password to permanently delete your account and data:");if(!pw)return;
+  await api("/api/me",{method:"DELETE",body:JSON.stringify({password:pw})});forceLogout();toast("Account deleted");
+});
+
+function notify(t,b){try{if(document.hidden&&"Notification"in window&&Notification.permission==="granted")new Notification(t,{body:b,icon:"/icon.svg"})}catch(e){}}
+window.sendTyping=()=>{if(ws&&ws.readyState===1&&chatWith&&Date.now()-typingSentAt>1500){typingSentAt=Date.now();ws.send(JSON.stringify({type:"typing",to:chatWith}))}};
+async function refreshConvos(){try{const l=await api("/api/conversations");convos=new Map(l.map(c=>[c.with,c]));const n=l.reduce((a,c)=>a+c.unread,0);$("messageBadge").innerHTML=n?`<span class="unread">${n}</span>`:"";renderPeople()}catch(e){}}
+function connectWS(){
+  const proto=location.protocol==="https:"?"wss:":"ws:";
+  ws=new WebSocket(`${proto}//${location.host}/ws?token=${encodeURIComponent(token)}`);
+  ws.onmessage=ev=>{
+    const msg=JSON.parse(ev.data);
+    if(msg.type==="users:update")refreshUsers();
+    if(msg.type==="requests:update")refreshRequests();
+    if(msg.type==="message:new"){
+      const open=chatWith&&msg.pair===[myId,chatWith].sort().join("_")&&!$("chat").classList.contains("hidden");
+      if(open)loadMessages();else if(msg.from!==myId){const u=users.get(msg.from);toast("💬 New message"+(u?" from "+u.name:""));notify("New message",u?u.name:"")}
+      refreshConvos();
+    }
+    if(msg.type==="message:read"&&chatWith===msg.by)loadMessages();
+    if(msg.type==="request:new"){toast(`🔋 ${msg.name} is at ${msg.battery}% and needs a ${msg.resource}`);notify("Someone needs power",`${msg.name} is at ${msg.battery}%`)}
+    if(msg.type==="typing"&&msg.from===chatWith){$("typing").textContent="typing…";clearTimeout(typingT);typingT=setTimeout(()=>$("typing").textContent="",2500)}
+  };
+  ws.onclose=()=>{$("offlineBanner").classList.remove("hidden");$("connectionStatus").textContent="Reconnecting…";if(token)setTimeout(connectWS,Math.min(10000,1000*(++wsRetry)))};
+  ws.onopen=()=>{wsRetry=0;$("offlineBanner").classList.add("hidden");$("connectionStatus").textContent="Connected";if(myId){refreshUsers().catch(()=>{});refreshRequests().catch(()=>{});refreshConvos()}};
+}
+
+async function refreshUsers(){
+  const list=await api("/api/users");
+  users=new Map(list.map(u=>[u.id,u]));
+  renderLive();renderHelpers();renderPeople();renderHelpNearby();drawMarkers();
+}
+function renderLive(){
+  const live=[...users.values()].filter(u=>u.online);
+  $("onlineCount").textContent=live.length+1;
+  $("helperCount").textContent=live.filter(u=>u.helperAvailable).length;
+}
+function renderHelpers(){
+  const list=[...users.values()].filter(u=>u.online&&u.helperAvailable&&inRange(u));
+  $("helperList").innerHTML=list.length?list.map(u=>`<div class="user-row"><div><b><span class="online-dot"></span>${esc(u.name)}</b><div class="tiny muted">${esc(u.role)} · ${distMe(u)||(Number.isFinite(u.lat)?"location shared":"location not shared")}</div></div><div class="actions"><button onclick="openChat('${u.id}');go('chat')">💬 Message</button><button class="primary" onclick="routeTo('${u.id}')">Guide Me</button></div></div>`).join(""):"<div class='muted'>No helpers are currently online.</div>";
+}
+function renderHelpNearby(){
+  const box=$("helpNearbyList");if(!box)return;
+  const openReq=uid=>requests.find(r=>r.userId===uid&&r.status!=="Resolved");
+  const list=[...users.values()].filter(u=>u.online&&!u.helperAvailable&&inRange(u));
+  list.sort((a,b)=>{
+    const da=meters(a),db_=meters(b);
+    return da-db_;
+  });
+  box.innerHTML=list.length?list.map(u=>{
+    const r=openReq(u.id);
+    const dist=distMe(u)||(Number.isFinite(u.lat)?"location shared":"location not shared");
+    return `<div class="help-card"><div class="row"><b>${esc(u.name)}</b>${r?`<span class="status">${esc(r.status)}</span>`:"<span class='tiny muted'>No active request</span>"}</div>
+      <div class="tiny muted" style="margin-top:5px">${dist}</div>
+      ${r?`<p style="margin:8px 0">🔋 ${r.battery}% · needs ${esc(r.resource)}${r.note?" — "+esc(r.note):""}</p>`:""}
+      <div class="actions"><button class="primary" onclick="openChat('${u.id}');go('chat')">💬 Reach Out</button>${Number.isFinite(u.lat)?`<button onclick="routeTo('${u.id}')">Guide Me</button>`:""}${r&&r.status==="Pending"&&me.helperAvailable?`<button onclick="acceptRequest('${r.id}')">Accept Request</button>`:""}</div></div>`;
+  }).join(""):"<div class='muted'>No students are online right now.</div>";
+}
+let tiles=null,radiusLayer=null,routeLine=null,pinMode=false,manualPin=false,permWatched=false,lastPush=0,lastAcc=null,tileFails=0,altTiles=false,watchWarned=false,leafletP=null;
+const ALLOWED_RADII=[0.1,0.5,1];
+const savedRadius=Number(localStorage.getItem("imat1_radius"));
+let radiusKm=ALLOWED_RADII.includes(savedRadius)?savedRadius:0.5;
+localStorage.setItem("imat1_radius",String(radiusKm));
+const meters=u=>currentPosition&&Number.isFinite(u.lat)?distance(currentPosition.lat,currentPosition.lng,u.lat,u.lng):Infinity;
+const distMe=u=>{const d=meters(u);return d===Infinity?"":d<1000?Math.round(d)+" m away":(d/1000).toFixed(1)+" km away"};
+const inRange=u=>!radiusKm||!currentPosition||meters(u)<=radiusKm*1000;
+
+/* ---- map library: loads from 3 CDNs in turn so the map works even if one is blocked ---- */
+const loadScript=src=>new Promise((ok,no)=>{const e=document.createElement("script");e.src=src;e.onload=ok;e.onerror=()=>no(new Error(src));document.head.appendChild(e)});
+const loadCss=h=>{const l=document.createElement("link");l.rel="stylesheet";l.href=h;document.head.appendChild(l)};
+const CDNS=[["https://unpkg.com/leaflet@1.9.4/dist/","https://unpkg.com/leaflet-routing-machine@3.2.12/dist/"],["https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/","https://cdnjs.cloudflare.com/ajax/libs/leaflet-routing-machine/3.2.12/"],["https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/","https://cdn.jsdelivr.net/npm/leaflet-routing-machine@3.2.12/dist/"]];
+function ensureLeaflet(){
+  if(window.L)return Promise.resolve();
+  return leafletP||(leafletP=(async()=>{
+    for(const [a,b] of CDNS){try{loadCss(a+"leaflet.css");await loadScript(a+"leaflet.js");
+      try{loadCss(b+"leaflet-routing-machine.css");await loadScript(b+"leaflet-routing-machine.js")}catch(e){} return}catch(e){}}
+    leafletP=null;throw new Error("Map library failed to load");
+  })());
+}
+window.retryMap=()=>{$("liveMap").innerHTML='<div class="empty">Loading map…</div>';initMap()};
+function addTiles(){
+  if(tiles)mapObj.removeLayer(tiles);
+  tiles=L.tileLayer(altTiles?"https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png":"https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:altTiles?"© OpenStreetMap © CARTO":"© OpenStreetMap contributors"}).addTo(mapObj);
+  tiles.on("tileerror",()=>{if(++tileFails===6&&!altTiles){altTiles=true;addTiles()}});
+}
+async function initMap(){
+  if(mapObj)return;
+  try{await ensureLeaflet()}catch(e){$("liveMap").innerHTML='<div class="empty">The map couldn\'t load (network or blocker). Helper lists and chat still work.<br><br><button onclick="retryMap()">Retry</button></div>';return}
+  if(mapObj)return;$("liveMap").innerHTML="";
+  mapObj=L.map("liveMap",{worldCopyJump:true}).setView([20,0],2);
+  addTiles();userLayer=L.layerGroup().addTo(mapObj);helperLayer=L.layerGroup().addTo(mapObj);radiusLayer=L.layerGroup().addTo(mapObj);
+  mapObj.on("click",e=>{if(pinMode)setManual(e.latlng.lat,e.latlng.lng)});
+  fitView();drawMarkers();
+}
+function fitView(){
+  if(!mapObj)return;
+  if(currentPosition){mapObj.setView([currentPosition.lat,currentPosition.lng],radiusKm<=0.1?17:radiusKm<=0.5?16:15)}
+  else{const pts=[...users.values()].filter(u=>u.online&&Number.isFinite(u.lat)).map(u=>[u.lat,u.lng]);if(pts.length)mapObj.fitBounds(pts,{padding:[40,40],maxZoom:15})}
+}
+window.setRadius=v=>{const selected=Number(v);radiusKm=ALLOWED_RADII.includes(selected)?selected:0.5;localStorage.setItem("imat1_radius",String(radiusKm));drawMarkers();fitView();renderHelpers();renderHelpNearby()};
+function drawMarkers(){
+  const sel=$("radiusSel");if(sel)sel.value=String(radiusKm);
+  if(!mapObj)return;
+  userLayer.clearLayers();helperLayer.clearLayers();radiusLayer.clearLayers();
+  [...users.values()].filter(u=>u.online&&Number.isFinite(u.lat)&&Number.isFinite(u.lng)&&inRange(u)).forEach(u=>{
+    const helper=!!u.helperAvailable;
+    const icon=L.divIcon({className:"",html:`<div style="font-size:25px">${helper?"🔋":"🟢"}</div>`,iconSize:[30,30],iconAnchor:[15,15]});
+    const m=L.marker([u.lat,u.lng],{icon}).bindPopup(`<b>${esc(u.name)}</b><br>${helper?"Available helper":"Online student"}${distMe(u)?" · "+distMe(u):""}<br><button onclick="openChat('${u.id}');go('chat')">Message</button> <button onclick="routeTo('${u.id}')">Guide me here</button>`);
+    (helper?helperLayer:userLayer).addLayer(m);
+  });
+  if(currentPosition){
+    const meIcon=L.divIcon({className:"",html:`<div style="font-size:25px">📍</div>`,iconSize:[30,30],iconAnchor:[15,25]});
+    L.marker([currentPosition.lat,currentPosition.lng],{icon:meIcon}).addTo(radiusLayer).bindPopup(manualPin?"You (manual pin)":"You"+(lastAcc?` (±${Math.round(lastAcc)} m)`:""));
+    if(radiusKm)L.circle([currentPosition.lat,currentPosition.lng],{radius:radiusKm*1000,weight:2,fillOpacity:.06}).addTo(radiusLayer);
+    if(lastAcc&&lastAcc>15&&lastAcc<3000&&!manualPin)L.circle([currentPosition.lat,currentPosition.lng],{radius:lastAcc,weight:1,color:"#2a7de1",fillOpacity:.1}).addTo(radiusLayer);
+  }
+}
+
+/* ---- modal ---- */
+window.closeModal=()=>{$("modal")?.remove()};
+function modal(html){closeModal();const d=document.createElement("div");d.id="modal";d.className="modal";d.innerHTML=`<div class="modal-box" role="dialog" aria-modal="true">${html}</div>`;d.onclick=e=>{if(e.target===d)closeModal()};document.body.appendChild(d);d.querySelector("button")?.focus()}
+
+/* ---- location: works on iOS, Android, desktop; handles denied / insecure / in-app browsers / weak GPS ---- */
+const IN_APP=/FBAN|FBAV|Instagram|Line\/|MicroMessenger|Snapchat|TikTok|; wv\)/i.test(navigator.userAgent);
+function updateStatus(){
+  const el=$("locStatus");if(!el)return;
+  el.textContent=currentPosition?(manualPin?"📌 Manual pin":"📍 Live"+(lastAcc?` · ±${Math.round(lastAcc)} m`:"")):"Sharing is off";
+}
+function setPos(p){currentPosition={lat:p.coords.latitude,lng:p.coords.longitude};lastAcc=p.coords.accuracy;pushLocation()}
+function pushLocation(force){if(!currentPosition)return;if(!force&&Date.now()-lastPush<8000)return;lastPush=Date.now();api("/api/location",{method:"POST",body:JSON.stringify(currentPosition)}).catch(()=>{})}
+function stopWatch(){if(watchId!==null&&navigator.geolocation)navigator.geolocation.clearWatch(watchId);watchId=null}
+function startWatch(){
+  if(watchId!==null||manualPin||!navigator.geolocation)return;
+  watchId=navigator.geolocation.watchPosition(q=>{setPos(q);drawMarkers();updateStatus();renderHelpers();renderHelpNearby()},
+    err=>{if(err.code===1){stopWatch();deniedHelp()}else if(!watchWarned){watchWarned=true;toast("GPS signal is weak — using your last known position")}},{enableHighAccuracy:true,maximumAge:10000,timeout:30000});
+}
+function deniedHelp(){
+  const ua=navigator.userAgent,ios=/iPad|iPhone|iPod/.test(ua)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1),android=/Android/i.test(ua);
+  const steps=ios?"<b>iPhone / iPad:</b> Settings → Privacy &amp; Security → Location Services → On. Then scroll to your browser (Safari Websites / Chrome) → “While Using the App”. Reload this page."
+   :android?"<b>Android:</b> tap the 🔒 icon by the address bar → Permissions → Location → Allow. Still blocked? Settings → Apps → your browser → Permissions → Location → Allow. Reload this page."
+   :"<b>Computer:</b> click the 🔒 icon left of the address bar → Site settings → Location → Allow, then reload. Also check your system setting (Windows: Settings → Privacy → Location · Mac: System Settings → Privacy &amp; Security → Location Services).";
+  modal(`<h3>Location is blocked</h3><p>${steps}</p><p class="tiny muted">Prefer not to turn it on? You can still drop a pin on the map by hand.</p><div class="actions"><button class="primary" onclick="closeModal();startPin()">📌 Pick on map</button><button onclick="closeModal();enableLocation(true)">Try again</button><button onclick="closeModal()">Close</button></div>`);
+}
+function getFix(){
+  toast("Getting your location…");
+  const ok=p=>{manualPin=false;pinMode=false;setPos(p);pushLocation(true);startWatch();localStorage.setItem("imat1_share","1");toast("Live location sharing is on");drawMarkers();updateStatus();fitView();renderHelpers();renderHelpNearby()};
+  const bad=e=>{if(e.code===1)return deniedHelp();toast(e.code===2?"Your device couldn't determine a location.":"Location timed out.");modal(`<h3>Couldn't get a location fix</h3><p>Turn on GPS / Wi-Fi, move near a window, or pick your spot manually.</p><div class="actions"><button class="primary" onclick="closeModal();startPin()">📌 Pick on map</button><button onclick="closeModal();enableLocation(true)">Try again</button></div>`)};
+  navigator.geolocation.getCurrentPosition(ok,e=>{if(e.code===1)return bad(e);navigator.geolocation.getCurrentPosition(ok,bad,{enableHighAccuracy:false,timeout:20000,maximumAge:60000})},{enableHighAccuracy:true,timeout:12000,maximumAge:5000});
+}
+window.enableLocation=async skipIntro=>{
+  if(!window.isSecureContext){modal(`<h3>Secure connection needed</h3><p>Browsers only allow location on <b>https://</b> pages. Open this app with its https:// address (or localhost while testing).</p><div class="actions"><button class="primary" onclick="closeModal();startPin()">📌 Pick on map instead</button><button onclick="closeModal()">Close</button></div>`);return}
+  if(!navigator.geolocation){toast("This browser can't share location — pick a spot on the map.");startPin();return}
+  let state="prompt";
+  try{const q=await navigator.permissions.query({name:"geolocation"});state=q.state;if(!permWatched){permWatched=true;q.onchange=()=>{if(q.state==="granted"&&!currentPosition)getFix()}}}catch(e){}
+  if(state==="denied")return deniedHelp();
+  if(state==="prompt"&&!skipIntro){
+    modal(`<h3>📍 Share your location?</h3><p>Your browser will ask for permission next. Choose <b>Allow</b> (on iPhone: “Allow While Using”). We use it only to show you on the map to people nearby. It isn't stored on disk and disappears when you go offline or tap Stop.</p>${IN_APP?'<div class="notice tiny">You seem to be in an in-app browser (Facebook, Instagram, etc.). If the prompt never appears, open this page in Safari or Chrome.</div>':""}<div class="actions"><button class="primary" onclick="closeModal();enableLocation(true)">Continue</button><button onclick="closeModal();startPin()">📌 Pick on map instead</button><button onclick="closeModal()">Not now</button></div>`);return;
+  }
+  getFix();
+};
+window.disableLocation=async()=>{
+  stopWatch();currentPosition=null;lastAcc=null;manualPin=false;pinMode=false;localStorage.setItem("imat1_share","0");
+  await api("/api/location",{method:"POST",body:JSON.stringify({lat:null,lng:null})}).catch(()=>{});
+  toast("Location sharing stopped");drawMarkers();updateStatus();renderHelpers();renderHelpNearby();
+};
+window.startPin=async()=>{
+  go("mapPage");await initMap();
+  if(!mapObj){toast("Map isn't available right now.");return}
+  pinMode=true;$("liveMap").classList.add("pinning");toast("Tap the map where you are");
+};
+function setManual(lat,lng){
+  pinMode=false;$("liveMap").classList.remove("pinning");stopWatch();manualPin=true;lastAcc=null;
+  currentPosition={lat,lng};pushLocation(true);localStorage.setItem("imat1_share","1");drawMarkers();updateStatus();renderHelpers();renderHelpNearby();toast("Location set to your pin");
+}
+window.locateMe=()=>{if(currentPosition&&mapObj)mapObj.setView([currentPosition.lat,currentPosition.lng],16);else enableLocation()};
+async function resumeLocation(){ // no surprise prompts: only auto-resume if already granted and the user hadn't stopped sharing
+  if(localStorage.getItem("imat1_share")!=="1"||!navigator.geolocation)return;
+  try{const q=await navigator.permissions.query({name:"geolocation"});if(q.state==="granted")getFix()}catch(e){}
+}
+document.addEventListener("visibilitychange",()=>{ // phones suspend GPS in the background; refresh on return
+  if(!document.hidden&&currentPosition&&!manualPin&&navigator.geolocation)navigator.geolocation.getCurrentPosition(p=>{setPos(p);drawMarkers();updateStatus()},()=>{},{maximumAge:15000,timeout:10000});
+});
+
+/* ---- routing with graceful fallback ---- */
+function clearRoute(){if(routeControl&&mapObj){try{mapObj.removeControl(routeControl)}catch(e){}}routeControl=null;if(routeLine&&mapObj)mapObj.removeLayer(routeLine);routeLine=null}
+window.routeTo=async uid=>{
+  const u=users.get(uid);if(!u||!Number.isFinite(u.lat)||!Number.isFinite(u.lng)){toast("This person has not shared a location.");return}
+  if(!currentPosition){toast("Share your location first.");enableLocation();return}
+  go("mapPage");await initMap();clearRoute();
+  const a=currentPosition,ll=`${u.lat},${u.lng}`;
+  $("routeBox").classList.remove("hidden");
+  $("routeBox").innerHTML=`Guidance to <b>${esc(u.name)}</b> · ${distMe(u)}<br>Open in: <a target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&origin=${a.lat},${a.lng}&destination=${ll}&travelmode=walking">Google Maps</a> · <a target="_blank" rel="noopener" href="https://maps.apple.com/?saddr=${a.lat},${a.lng}&daddr=${ll}&dirflg=w">Apple Maps</a>`;
+  if(!mapObj)return;
+  const line=()=>{clearRoute();routeLine=L.polyline([[a.lat,a.lng],[u.lat,u.lng]],{dashArray:"6 8",weight:4}).addTo(mapObj);mapObj.fitBounds(routeLine.getBounds(),{padding:[50,50]})};
+  if(L.Routing){try{routeControl=L.Routing.control({waypoints:[L.latLng(a.lat,a.lng),L.latLng(u.lat,u.lng)],router:L.Routing.osrmv1({serviceUrl:"https://router.project-osrm.org/route/v1"}),addWaypoints:false,draggableWaypoints:false,fitSelectedRoutes:true,showAlternatives:false}).on("routingerror",line).addTo(mapObj)}catch(e){line()}}else line();
+};
+
+/* ---- block / report ---- */
+window.blockUser=safe(async id=>{
+  if(!confirm("Block this person? You won't see or message each other."))return;
+  await api("/api/block",{method:"POST",body:JSON.stringify({id})});chatWith=null;
+  $("chatHead").innerHTML="<b>Select a person</b>";$("messages").innerHTML='<div class="empty">💬 Your conversation will appear here.</div>';
+  await refreshUsers();await refreshRequests();refreshConvos();toast("Blocked");
+});
+window.reportUser=safe(async id=>{
+  const reason=prompt("What's the problem? (optional)");if(reason===null)return;
+  await api("/api/report",{method:"POST",body:JSON.stringify({id,reason})});toast("Thanks — report sent");
+});
+window.unblock=safe(async id=>{await api("/api/block",{method:"POST",body:JSON.stringify({id,block:false})});await refreshUsers();loadBlocked();toast("Unblocked")});
+async function loadAdmin(){
+  const box=$("adminBox");if(!me.admin){box.classList.add("hidden");return}
+  box.classList.remove("hidden");const l=await api("/api/admin/reports").catch(()=>[]);
+  $("adminList").innerHTML=l.length?l.map(r=>`<div class="help-card"><b>${esc(r.reported.name)}</b> reported by ${esc(r.reporter)} · ${ago(r.createdAt)}<p style="margin:6px 0">${esc(r.reason||"(no reason given)")}</p><div class="actions"><button onclick="adminAct('remove','${r.reported.id}')">Remove &amp; ban</button><button onclick="adminAct('dismiss','${r.id}')">Dismiss</button></div></div>`).join(""):"No reports";
+}
+window.adminAct=safe(async(a,id)=>{
+  if(a==="remove"&&!confirm("Permanently remove this user and block their email?"))return;
+  await api("/api/admin/"+a,{method:"POST",body:JSON.stringify({id})});toast("Done");loadAdmin();refreshUsers();
+});
+async function loadBlocked(){
+  const l=await api("/api/blocked").catch(()=>[]),b=$("blockedList");
+  b.innerHTML=l.length?l.map(x=>`<div class="user-row"><span>${esc(x.name)}</span><button onclick="unblock('${x.id}')">Unblock</button></div>`).join(""):"None";
+}
+window.createRequest=safe(async()=>{
+  await api("/api/requests",{method:"POST",body:JSON.stringify({battery:Number($("battery").value),resource:$("resource").value,note:$("requestNote").value})});
+  toast("Assistance request sent");$("requestNote").value="";go("requests");
+});
+window.acceptRequest=safe(async id=>{
+  await api(`/api/requests/${id}/accept`,{method:"POST"});
+  toast("Request accepted — student notified");
+});
+window.closeRequest=safe(async(id,how)=>{await api(`/api/requests/${id}/${how}`,{method:"POST"});toast(how==="resolve"?"Marked as resolved 🎉":"Request cancelled")});
+async function refreshRequests(){
+  requests=await api("/api/requests");if(!$("requestList"))return;
+  const box=$("requestList");if(!box)return;
+  
+  const shown=requests;
+  if(!shown.length){box.innerHTML="<div class='empty'>No assistance requests yet.</div>";return}
+  box.innerHTML=shown.map(r=>{
+    const owner=r.userId===myId;
+    const nm=owner?"You":(users.get(r.userId)?.name||"Student");
+    return `<div class="help-card"><div class="row"><b>🔋 ${esc(nm)}</b><span class="status ${esc(r.status)}">${esc(r.status||"Pending")}</span></div>
+      <div class="tiny muted" style="margin-top:5px">${r.battery}% battery · ${esc(r.resource)} · ${ago(r.createdAt)}</div>
+      ${r.note?`<p style="margin:8px 0">${esc(r.note)}</p>`:""}
+      <div class="actions">${!owner?`<button class="primary" onclick="openChat('${r.userId}');go('chat')">💬 Contact Student</button>`:""} ${!owner&&r.status==="Pending"&&me.helperAvailable?`<button onclick="acceptRequest('${r.id}')">Accept Request</button>`:""}${(owner||r.helperId===myId)&&r.status==="Accepted"?`<button onclick="closeRequest('${r.id}','resolve')">✅ Resolved</button>`:""}${owner&&(r.status==="Pending"||r.status==="Accepted")?`<button onclick="closeRequest('${r.id}','cancel')">Cancel</button>`:""} ${owner&&r.status==="Accepted"&&r.helperId?`<button class="primary" onclick="openChat('${r.helperId}');go('chat')">💬 Message Helper</button>`:""}</div></div>`;
+  }).join("");
+  renderHelpNearby();
+}
+function renderPeople(){
+  const box=$("chatPeople");if(!box)return;
+  const people=[...users.values()].sort((a,b)=>(convos.get(b.id)?.last.createdAt||0)-(convos.get(a.id)?.last.createdAt||0)||(b.online-a.online));
+  box.innerHTML=people.length?people.map(u=>`<div class="chat-person ${chatWith===u.id?"active":""}" onclick="openChat('${u.id}')"><b>${esc(u.name)}</b>${convos.get(u.id)?.unread?`<span class="unread">${convos.get(u.id).unread}</span>`:""}<div class="tiny muted">${u.helperAvailable?"🔋 Helper":"👤 Student"} · ${u.online?"Online":"Offline"}</div>${convos.get(u.id)?`<div class="tiny" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(convos.get(u.id).last.text)}</div>`:""}</div>`).join(""):"<div class='empty'>No other participating users yet.</div>";
+}
+window.openChat=uid=>{
+  const u=users.get(uid);if(!u)return;chatWith=uid;
+  $("chatHead").innerHTML=`<b>${esc(u.name)}</b><div class="tiny muted">${u.helperAvailable?"🔋 Available helper":"👤 Student"} · ${u.online?"Online":"Offline"}</div><div class="actions" style="margin-top:6px"><button onclick="blockUser('${u.id}')">🚫 Block</button><button onclick="reportUser('${u.id}')">⚑ Report</button></div>`;
+  $("typing").textContent="";loadMessages();renderPeople();
+};
+async function loadMessages(){
+  const box=$("messages");if(!box||!chatWith)return;
+  const msgs=await api("/api/messages?with="+chatWith);
+  if(msgs.some(m=>m.to===myId&&!m.readAt))api("/api/messages/read",{method:"POST",body:JSON.stringify({with:chatWith})}).then(refreshConvos).catch(()=>{});
+  box.innerHTML=msgs.length?msgs.map(m=>`<div class="bubble ${m.from===myId?"mine":""}">${esc(m.text)}<small>${ago(m.createdAt)}${m.from===myId&&m.readAt?" · ✓ Seen":""}</small></div>`).join(""):"<div class='empty'>No messages yet. Say hello.</div>";
+  box.scrollTop=box.scrollHeight;
+}
+window.sendMessage=safe(async()=>{
+  if(!chatWith)return toast("Select a person first.");
+  const input=$("chatInput"),text=input.value.trim();if(!text)return;
+  input.value="";
+  await api("/api/messages",{method:"POST",body:JSON.stringify({to:chatWith,text})}).catch(e=>{input.value=text;throw e});
+  loadMessages();
+});
+
+window.go=p=>{
+  document.querySelectorAll(".page").forEach(x=>x.classList.add("hidden"));
+  $(p)?.classList.remove("hidden");
+  document.querySelectorAll("nav button[data-page]").forEach(b=>b.classList.toggle("active",b.dataset.page===p));
+  if(p==="mapPage"){initMap();setTimeout(()=>mapObj?.invalidateSize(),100)}
+  if(p==="profile"){loadBlocked();loadAdmin()}
+  if(p==="chat")renderPeople();
+  if(p==="requests")refreshRequests();
+  if(p==="helpNearby")renderHelpNearby();
+};
+
+window.addEventListener("pagehide",()=>{
+  if(token)navigator.sendBeacon("/api/offline",token);
+  if(watchId!==null)navigator.geolocation.clearWatch(watchId);
+});
+
+if(token)startSession().catch(()=>forceLogout());
+if("serviceWorker"in navigator)addEventListener("load",()=>navigator.serviceWorker.register("/sw.js").catch(()=>{}));
+</script>
+</body>
+</html>
